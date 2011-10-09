@@ -1,0 +1,11 @@
+$:.unshift "../../lib"
+
+require 'rake/arduino'
+
+Rake::Arduino::Sketch.new do |s|
+  s.sources << "Blink.cpp"
+
+  s.board = Rake::Arduino.board("Arduino Uno") do |b|
+    b.cpu_speed = 8000000
+  end
+end
