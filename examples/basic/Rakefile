@@ -1,11 +1,25 @@
 $:.unshift "../../lib"
-
 require 'rake/arduino'
 
+# The basic configuration of a project is done via the
+# Rake::Arduino::Sketch task:
+
 Rake::Arduino::Sketch.new do |s|
+  # Add your main source files to the s.sources array:
   s.sources << "Blink.cpp"
 
+  # If you need any Arduino libraries, add them to s.libraries:
+  s.libraries << "Servo"
+
+  # Specify the board you'd like to use. Boards are defined
+  # in lib/rake/arduino/boards.rb, and referenced by name:
   s.board = Rake::Arduino.board("Arduino Uno") do |b|
+
+    # In the board block, you can customize board parameters
+    # for your specific needs.
     b.cpu_speed = 8000000
+
+    # See the Board class docs for a full list of settings that
+    # can be configured.
   end
 end

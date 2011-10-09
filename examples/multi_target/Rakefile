@@ -1,0 +1,33 @@
+$:.unshift "../../lib"
+require 'rake/arduino'
+
+# rake-arduino supports defining multiple targets in a single rakefile.
+# This allows you to build variations on the same project quite easily.
+# Say, for example, you'd like to compile hex files for both the classic
+# arduino, and for the Teensy:
+
+Rake::Arduino::Sketch.new :arduino do |s|
+  s.sources << "Blink.cpp"
+  s.board = Rake::Arduino.board("Arduino Uno")
+end
+
+Rake::Arduino::Sketch.new :teensy do |s|
+  s.sources << "Blink.cpp"
+  s.board = Rake::Arduino.board("Teensy 2.0")
+end
+
+# Now you can build each target with `rake <target>`
+# If you want to build them all at once, add a default task that references
+# both targets:
+
+task :default => [:arduino, :teensy]
+
+# You can even have both platforms built in parallel:
+
+multitask :all => [:arduino, :teensy]
+
+# Now `rake` will build .hex files for both platforms in one go.
+# 
+# Note: Your targets don't have to relate to each other at all. If you'd
+# like to build completely separate projects from the same Rakefile, you
+# can do that too.
