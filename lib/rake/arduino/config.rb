@@ -14,6 +14,11 @@ module Rake
 
         self.cores ||= Dir.glob(hardware_path + "/**/cores/*")
       end
+
+      def self.read_defaults
+        load ENV["HOME"] + "/.rake-arduino"
+      rescue LoadError
+      end
     end
 
     class << self

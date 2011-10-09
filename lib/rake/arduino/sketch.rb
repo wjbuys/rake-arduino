@@ -18,6 +18,8 @@ module Rake
       attr_accessor :toolchain
 
       def initialize(target = :default)
+        Config.read_defaults
+
         self.target = target.to_sym
         self.build_root = "build/#{target}"
 
@@ -45,6 +47,7 @@ module Rake
 
         create_tasks
       end
+
 
       def config
         Rake::Arduino.config
