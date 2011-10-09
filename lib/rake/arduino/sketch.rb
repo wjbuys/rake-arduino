@@ -1,38 +1,47 @@
 require 'rake/arduino/core_ext/pathname'
+require 'rake/arduino/core_ext/array'
 
 module Rake
   module Arduino
     class Sketch
       include Rake::DSL
 
-      attr_accessor :main
+      attr_accessor :sources
+      attr_accessor :name
+      attr_accessor :target
       attr_accessor :board
       attr_accessor :libraries
       attr_accessor :hex, :elf
       attr_accessor :programmer, :upload_rate
       attr_accessor :usb_type
-      attr_accessor :build_root
+      attr_accessor :build_root, :root
       attr_accessor :toolchain
 
-      def initialize(main)
-        main = Pathname(main)
+      def initialize(target = :default)
+        self.target = target.to_sym
+        self.build_root = "build/#{target}"
 
-        self.main = main
+        self.root = Pathname.pwd
+
+        self.sources = []
         self.libraries = []
 
         yield self
 
         raise "You have to specify a board for the sketch" unless board
 
-        self.toolchain = Toolchain.new(self)
+        self.sources = sources.to_paths
+        self.build_root = Pathname(build_root)
 
-        self.build_root ||= "build"
+        self.name ||= root.basename.to_s
 
-        self.elf ||= build(main.basename.sub_ext(".elf"))
-        self.hex ||= main.basename.sub_ext(".hex")
+        self.elf ||= build("#{name}.elf")
+        self.hex ||= build("#{name}.hex")
 
         self.programmer ||= "avr109"
         self.upload_rate ||= 19200
+
+        self.toolchain = Toolchain.new(self)
 
         create_tasks
       end
@@ -42,7 +51,7 @@ module Rake
       end
 
       def core_paths
-        @core_paths ||= config.cores.map{|c| Pathname(c)}.select do |core|
+        @core_paths ||= config.cores.to_paths.select do |core|
           board.cores.include? core.basename.to_s
         end
       end
@@ -54,12 +63,20 @@ module Rake
       end
 
       def build(path)
+        path = Pathname(path)
+        path = path.relative_path_from(root) if path.absolute?
+
+        # Use fully-qualified paths for source outside the project root
+        path = path.expand_path.sub(/^\//, "") if path.to_s.start_with? ".."
+
         build_path = Pathname(build_root) + path
       end
 
       def compile(*source_files)
         source_files = [source_files].flatten
-        object_files = source_files.map { |source| build(source.sub_ext(".o")) }
+        object_files = source_files.map do |source|
+          build(source.sub_ext(".o"))
+        end
 
         object_files.zip(source_files).each do |object_file, source_file|
           file object_file => source_file do
@@ -77,9 +94,9 @@ module Rake
           *libraries
         ].map{|l| build("#{l}.a")}
 
-        task :default => [*compiled_libraries, hex]
+        task target => [*compiled_libraries, hex]
 
-        main_objects = compile main
+        main_objects = compile sources
 
         (core_paths + library_paths).each do |path|
           library_out = build(path.basename.sub_ext(".a"))
