@@ -6,33 +6,32 @@ module Rake
       attr_accessor :mcu, :cpu_speed
       attr_accessor :max_size
 
+      @boards = {}
       def self.[](name)
-        BOARDS[name]
+        @boards[name]
+      end
+
+      def self.register(board)
+        @boards[board.name] = board
+      end
+
+      def register
+        self.class.register(self)
       end
 
       def initialize(name)
         self.name = name
         self.defines = []
+        self.cores = []
 
         yield self if block_given?
       end
+    end
 
-      BOARDS = {
-        "Arduino" => Board.new("Arduino") do |b|
-          b.cores = ["arduino"]
-          b.cpu_speed = 16000000
-          b.mcu = "atmega328p"
-          b.max_size = 30720
-        end,
-
-        "Teensy 2.0" => Board.new("Teensy 2.0") do |b|
-          b.cores = ["teensy", "usb_serial"]
-          b.defines = ["USB_SERIAL"]
-          b.cpu_speed = 16000000
-          b.mcu = "atmega32u4"
-          b.max_size = 32256
-        end
-      }
+    def self.board(name)
+      board = Board[name]
+      yield board if block_given?
+      board
     end
   end
 end
