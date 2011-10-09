@@ -7,7 +7,7 @@ module Rake
 
       attr_accessor :main
       attr_accessor :target, :mcu, :cpu_speed
-      attr_accessor :libraries
+      attr_accessor :cores, :libraries
       attr_accessor :hex, :elf
       attr_accessor :programmer, :upload_rate, :max_size
       attr_accessor :usb_type
@@ -23,6 +23,8 @@ module Rake
         yield self
 
         self.target ||= :arduino
+        self.cores ||= [self.target.to_s]
+
         self.build_root ||= "build/#{target}"
         self.hex ||= main.basename.sub_ext(".hex")
         self.elf ||= build(main.basename.sub_ext(".elf"))
@@ -43,7 +45,9 @@ module Rake
       end
 
       def core_paths
-        config.cores.map{|c| Pathname(c)}
+        @core_paths ||= config.cores.map{|c| Pathname(c)}.select do |core|
+          cores.include? core.basename.to_s
+        end
       end
 
       def library_paths
@@ -72,7 +76,7 @@ module Rake
 
       def create_tasks
         compiled_libraries = [
-          target,
+          *cores,
           *libraries
         ].map{|l| build("#{l}.a")}
 
@@ -121,7 +125,7 @@ module Rake
       end
 
       def includes
-        ["/usr/lib/avr/include/avr", "./include", "lib/#{target}"]
+        ["/usr/lib/avr/include/avr", *core_paths, *library_paths]
       end
 
       def defines
