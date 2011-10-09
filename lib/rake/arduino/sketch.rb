@@ -12,6 +12,7 @@ module Rake
       attr_accessor :programmer, :upload_rate, :max_size
       attr_accessor :usb_type
       attr_accessor :build_root
+      attr_accessor :toolchain
 
       def initialize(main)
         main = Pathname(main)
@@ -36,6 +37,8 @@ module Rake
         self.max_size ||= 30720
 
         self.programmer ||= "avr109"
+
+        self.toolchain = Toolchain.new(self)
 
         create_tasks
       end
@@ -67,7 +70,7 @@ module Rake
         object_files.zip(source_files).each do |object_file, source_file|
           file object_file => source_file do
             object_file.parent.mkpath
-            cc "-c", source_file, "-o", object_file
+            toolchain.compile source_file, :into => object_file
           end
         end
 
@@ -92,19 +95,18 @@ module Rake
           file library_out => object_files do
             object_files.each do |object_file|
               library_out.parent.mkpath
-              ar library_out, object_file
+              toolchain.archive object_file, :into => library_out
             end
           end
         end
 
         file elf => main_objects + compiled_libraries do
-          ld main_objects.join(" "), compiled_libraries.join(" "), "-lm", "-o", elf
+          toolchain.link main_objects, :with => compiled_libraries, :into => elf
         end
 
         file hex => elf do
-          objcp elf, hex
+          size = toolchain.convert_binary(elf, :hex => hex)
 
-          size = hex_size
           if size > max_size
             puts "The sketch size (#{size} bytes) has overriden the maximum size (#{max_size} bytes)."
             rm hex
@@ -130,51 +132,6 @@ module Rake
 
       def defines
         ["F_CPU=#{cpu_speed}L", "ARDUINO=18"]
-      end
-
-      def cpp_flags
-        [
-          "-Wall",
-          "-std=gnu++0x",
-          "-g",
-          "-Os",
-          "-w",
-          "-fno-exceptions",
-          "-ffunction-sections",
-          "-fdata-sections",
-          "-mmcu=#{mcu}",
-          *defines.map{|d| "-D#{d}"},
-          *includes.map{|i| "-I'#{i}'"}
-        ]
-      end
-
-      def ld_flags
-        ["-Os", "-Wl,--gc-sections", "-mmcu=#{mcu}"]
-      end
-
-      def ar_flags
-        ['rcs']
-      end
-
-      def cc(*args)
-        sh "avr-gcc #{(cpp_flags + args).join(" ")}"
-      end
-
-      def ld(*args)
-        sh "avr-gcc #{(ld_flags + args).join(" ")}"
-      end
-
-      def ar(*args)
-        sh "avr-ar #{(ar_flags + args).join(" ")}"
-      end
-
-      def objcp(*args)
-        sh "avr-objcopy -O ihex -R .eeprom #{args.join(" ")}"
-      end
-
-      def hex_size
-        `avr-size -A --mcu=#{mcu} #{hex}` =~ /Total(\s*)(\d*)/
-        $2.to_i
       end
 
       def avrdude
