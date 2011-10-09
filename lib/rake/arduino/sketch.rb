@@ -6,10 +6,10 @@ module Rake
       include Rake::DSL
 
       attr_accessor :main
-      attr_accessor :target, :mcu, :cpu_speed
-      attr_accessor :cores, :libraries
+      attr_accessor :board
+      attr_accessor :libraries
       attr_accessor :hex, :elf
-      attr_accessor :programmer, :upload_rate, :max_size
+      attr_accessor :programmer, :upload_rate
       attr_accessor :usb_type
       attr_accessor :build_root
       attr_accessor :toolchain
@@ -18,27 +18,21 @@ module Rake
         main = Pathname(main)
 
         self.main = main
-
         self.libraries = []
 
         yield self
 
-        self.target ||= :arduino
-        self.cores ||= [self.target.to_s]
-
-        self.build_root ||= "build/#{target}"
-        self.hex ||= main.basename.sub_ext(".hex")
-        self.elf ||= build(main.basename.sub_ext(".elf"))
-
-        self.upload_rate ||= 19200
-        self.cpu_speed = 16000000
-        self.mcu ||= "atmega328p"
-
-        self.max_size ||= 30720
-
-        self.programmer ||= "avr109"
+        raise "You have to specify a board for the sketch" unless board
 
         self.toolchain = Toolchain.new(self)
+
+        self.build_root ||= "build"
+
+        self.elf ||= build(main.basename.sub_ext(".elf"))
+        self.hex ||= main.basename.sub_ext(".hex")
+
+        self.programmer ||= "avr109"
+        self.upload_rate ||= 19200
 
         create_tasks
       end
@@ -49,7 +43,7 @@ module Rake
 
       def core_paths
         @core_paths ||= config.cores.map{|c| Pathname(c)}.select do |core|
-          cores.include? core.basename.to_s
+          board.cores.include? core.basename.to_s
         end
       end
 
@@ -79,7 +73,7 @@ module Rake
 
       def create_tasks
         compiled_libraries = [
-          *cores,
+          *board.cores,
           *libraries
         ].map{|l| build("#{l}.a")}
 
@@ -107,17 +101,17 @@ module Rake
         file hex => elf do
           size = toolchain.convert_binary(elf, :hex => hex)
 
-          if size > max_size
-            puts "The sketch size (#{size} bytes) has overriden the maximum size (#{max_size} bytes)."
+          if size > board.max_size
+            puts "The sketch size (#{size} bytes) has overriden the maximum size (#{board.max_size} bytes)."
             rm hex
             exit -1
           else
-            puts "Sketch size: #{size} bytes (of a #{max_size} bytes maximum)."
+            puts "Sketch size: #{size} bytes (of a #{board.max_size} bytes maximum)."
           end
         end
 
         task :upload => [:all, :upload_pre] do
-          sh "#{avrdude} -V -F -p #{mcu} -c #{programmer} -P #{port} -b #{upload_rate} -D -Uflash:w:#{hex}:i"
+          sh "#{avrdude} -V -F -p #{board.mcu} -c #{programmer} -P #{port} -b #{upload_rate} -D -Uflash:w:#{hex}:i"
         end
 
         task :clean do
@@ -131,7 +125,7 @@ module Rake
       end
 
       def defines
-        ["F_CPU=#{cpu_speed}L", "ARDUINO=18"]
+        ["F_CPU=#{board.cpu_speed}L", "ARDUINO=18", *board.defines]
       end
 
       def avrdude

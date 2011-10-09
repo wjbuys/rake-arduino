@@ -9,6 +9,10 @@ module Rake
         self.sketch = sketch
       end
 
+      def mcu
+        sketch.board.mcu
+      end
+
       def cpp_flags
         [
           "-Wall",
@@ -19,14 +23,14 @@ module Rake
           "-fno-exceptions",
           "-ffunction-sections",
           "-fdata-sections",
-          "-mmcu=#{sketch.mcu}",
+          "-mmcu=#{mcu}",
           *sketch.defines.map{|d| "-D#{d}"},
           *sketch.includes.map{|i| "-I'#{i}'"}
         ]
       end
 
       def ld_flags
-        ["-Os", "-Wl,--gc-sections", "-mmcu=#{sketch.mcu}"]
+        ["-Os", "-Wl,--gc-sections", "-mmcu=#{mcu}"]
       end
 
       def ar_flags
@@ -53,7 +57,7 @@ module Rake
         hex = options[:hex]
         sh "avr-objcopy -O ihex -R .eeprom #{binary} #{hex}"
 
-        `avr-size -A --mcu=#{sketch.mcu} #{hex}` =~ /Total(\s*)(\d*)/
+        `avr-size -A --mcu=#{mcu} #{hex}` =~ /Total(\s*)(\d*)/
         $2.to_i
       end
     end
