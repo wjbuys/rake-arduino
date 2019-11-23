@@ -1,3 +1,7 @@
+ABANDONED
+=========
+If you want a mature embedded build tool, check out [PlatformIO](https://platformio.org/) instead.
+
 rake-arduino
 ============
 _A Flexible build tool for Arduino development_
